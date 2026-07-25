@@ -1,0 +1,24 @@
+{
+	"folders": [
+		{
+			"path": "../../TestProjects"
+		},
+		{
+			"name": "Memory Game",
+			"path": "../../Memory Game"
+		},
+		{
+			"name": "Arduino Robotics Bookwork",
+			"path": "../../Arduino Robotics Bookwork"
+		},
+		{
+			"name": "Line Following Robot",
+			"path": ".."
+		},
+		{
+			"name": "Soil Monitoring",
+			"path": "../../Soil Monitoring"
+		}
+	],
+	"settings": {}
+}
