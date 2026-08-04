@@ -12,21 +12,20 @@ constexpr uint8_t leftMSensor = 10;
 constexpr uint8_t rightMSensor = 11;
 constexpr uint8_t rightSensor = 12;
 constexpr uint8_t sensorCount = 4;
-int defaultSpeed = 210;
+int defaultSpeed = 190;
 int32_t targetSensorReading = 1000;
 int32_t sensorList[sensorCount] = {leftSensor, leftMSensor, rightMSensor, rightSensor};
 uint16_t sensorValues[sensorCount] = {leftSensor, leftMSensor, rightMSensor, rightSensor};
 int32_t lastError = 0;
 int32_t lastTurnError = 0;
-int previouslyCheckedSensor = 0;
 uint8_t controlInterval = 10;
+int lastControlinterval = 0;
 float pTerm = 0;
 float iTerm = 0;
 int leftSensorOffset = 53;
 int middleLeftSensorOffset = 13;
 int middleRightSensorOffset = -61;
 int rightSensorOffset = 6;
-int32_t setPoint = 250;
 bool leftTurnFlag = false;
 bool readLineSensor(int32_t sensorPin);
 void motorController(int32_t pwmValue, int32_t directionL, int32_t directionR, bool isTurn);
@@ -139,6 +138,9 @@ Serial.println("print EPROM");
 
 void loop()
 {
+  if(millis() - lastControlinterval >= controlInterval) {
+    lastControlinterval += controlInterval;
+  }
   qtr.readCalibrated(sensorValues);
   for (int i = 0; i < sizeof(sensorValues); i++)
   {
@@ -153,37 +155,12 @@ void loop()
   {
     leftMotor.stop();
     rightMotor.stop();
-    // left or right sensors
+ 
   }
-  // for (uint8_t i = 0; i < sizeof(sensorValues); i++) {
-  //   bool isBlackLine =  readLineSensor(sensorValues[i]);
-  //   if (isBlackLine) {
-  //     if (sensorList[i] = lastCheckedSensor)
-  //     motorController(sensorValues[i], 100); //150 is pwm value
-  //   } else {
-  //     motorController(sensorValues[i], 0);
-  //   }
-  //   delay(10);
-  //   lastCheckedSensor = sensorList[i];
-  // }
   Serial.println();
 }
 
-// bool readLineSensor(uint8_t sensorPin) {
-//   pinMode(sensorPin, OUTPUT);
-//   digitalWrite(sensorPin, HIGH);
-//   delayMicroseconds(10);
-//   pinMode(sensorPin, INPUT);
-//   unsigned long start = micros();
-//   while (digitalRead(sensorPin) == HIGH) {
-//   }
-//   unsigned long totalTime = micros() - start;
-//   if (totalTime > 2500) {
-//     //return 1;
-//   }
-//   return 0;
 
-// }
 
 void motorController(int32_t pwmValue, int32_t directionL, int32_t directionR, bool isTurn)
 {
@@ -195,54 +172,8 @@ void motorController(int32_t pwmValue, int32_t directionL, int32_t directionR, b
     rightMotor.move(pwmValue, directionR);
   }
   
-
-  // switch(sensorPosition) {
-  //   case leftMSensor:
-  //     moveLeft(sensorPosition, pwmValue);
-  //     break;
-  //   case middleSensor:
-  //     moveForward(sensorPosition, pwmValue);
-  //     break;
-  //   case rightMSensor:
-  //     moveRight(sensorPosition, pwmValue);
-  //     break;
-  //   default:
-  //     break;
-  // }
 }
 
-void moveForward(int32_t pwmValue)
-{
-  digitalWrite(E1, LOW);
-  digitalWrite(M1, HIGH);
-  digitalWrite(E2, LOW);
-  digitalWrite(M2, HIGH);
-  Serial.println(defaultSpeed);
-  analogWrite(E1, defaultSpeed);
-  analogWrite(E2, defaultSpeed);
-}
-
-void moveRight(int32_t pwmValue)
-{
-
-  digitalWrite(E1, LOW);
-  digitalWrite(M1, LOW);
-  digitalWrite(E2, LOW);
-  digitalWrite(M2, HIGH);
-  analogWrite(E1, 0);
-  analogWrite(E2, constrain(pwmValue, 0, 255));
-}
-
-void moveLeft(int32_t pwmValue)
-{
-  digitalWrite(E1, LOW);
-  digitalWrite(M1, HIGH);
-  digitalWrite(E2, LOW);
-  digitalWrite(M2, LOW);
-  // Serial.println(defaultSpeed + pwmValue);
-  analogWrite(E1, constrain((defaultSpeed + pwmValue), -255, 255));
-  analogWrite(E2, 0);
-}
 
 void motorPidController()
 {
@@ -251,29 +182,17 @@ void motorPidController()
   uint32_t rightMSensorAdj = sensorValues[2];
   uint32_t rightSensorAdj = sensorValues[3];
   
-
-  // Controller gains.
   float kp;
   float ki;
   float kd;
   int error;
   int tempError;
   int turnError;
-  // if (sensorValues[0] == 1000 && sensorValues[1] == 1000 && sensorValues[2] == 1000 && sensorValues[3] == 1000)
-  // {
-  //   Serial.println("in the air");
-  //   leftMotor.stop();
-  //   rightMotor.stop();
-  // }
-  // if (sensorValues[0] == 1000 && sensorValues[1] == 1000 && sensorValues[2] == 1000 && sensorValues[3] == 1000) {
-  //   leftMotor.stop();
-  //   rightMotor.stop();
-  //   delay(20);
-  // }
+
   if (sensorValues[0] >= 900 || sensorValues[3] >= 900)
   {
     //Serial.println("turning");
-    kp = 1;
+    kp = 0.3;
     ki = 0;
     kd = 0;
     //Serial.println(sensorValues[3]);
@@ -302,14 +221,14 @@ void motorPidController()
   else
   {
     //Serial.println("moving straight");
-    kp = 0.2;
+    kp = 0.4;
     ki = 0;
     kd = 0.5;
     error = sensorValues[1] - sensorValues[2];
     float pTerm = kp * error;
     iTerm += ki * (error + lastError) / 2;
     iTerm = constrain(iTerm, -255, 255);
-    float dTerm = kd * (error - lastError);
+    float dTerm = kd * (error - lastError) / controlInterval;
     int32_t controllerOutput = pTerm + iTerm + dTerm;
     controllerOutput = constrain(controllerOutput, -255, 255);
     lastError = error;
