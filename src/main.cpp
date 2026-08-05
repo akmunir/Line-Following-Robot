@@ -12,7 +12,8 @@ constexpr uint8_t leftMSensor = 10;
 constexpr uint8_t rightMSensor = 11;
 constexpr uint8_t rightSensor = 12;
 constexpr uint8_t sensorCount = 4;
-int defaultSpeed = 190;
+int defaultSpeed = 200;
+int turnDefaultSpeed = 50;
 int32_t targetSensorReading = 1000;
 int32_t sensorList[sensorCount] = {leftSensor, leftMSensor, rightMSensor, rightSensor};
 uint16_t sensorValues[sensorCount] = {leftSensor, leftMSensor, rightMSensor, rightSensor};
@@ -27,6 +28,7 @@ int middleLeftSensorOffset = 13;
 int middleRightSensorOffset = -61;
 int rightSensorOffset = 6;
 bool leftTurnFlag = false;
+bool rightTurnFlag = false;
 bool readLineSensor(int32_t sensorPin);
 void motorController(int32_t pwmValue, int32_t directionL, int32_t directionR, bool isTurn);
 void moveLeft(int32_t pwmValue);
@@ -144,10 +146,10 @@ void loop()
   qtr.readCalibrated(sensorValues);
   for (int i = 0; i < sizeof(sensorValues); i++)
   {
-    // Serial.print(sensorValues[i]);
-    // Serial.print("\t");
+     Serial.print(sensorValues[i]);
+     Serial.print("\t");
   }
-  if (sensorValues[0] == 1000 || sensorValues[1] == 1000 || sensorValues[2] == 1000 || sensorValues[3] > 900)
+  if (sensorValues[0] >= 900 || sensorValues[1] >= 900 || sensorValues[2] >= 900 || sensorValues[3] >= 900)
   {
     motorPidController();
   }
@@ -168,8 +170,8 @@ void motorController(int32_t pwmValue, int32_t directionL, int32_t directionR, b
     leftMotor.move(-pwmValue + defaultSpeed, directionL);
     rightMotor.move(pwmValue + defaultSpeed, directionR);
   } else {
-    leftMotor.move(-pwmValue, directionL);
-    rightMotor.move(pwmValue, directionR);
+    leftMotor.move(-pwmValue + turnDefaultSpeed, directionL);
+    rightMotor.move(pwmValue + turnDefaultSpeed, directionR);
   }
   
 }
@@ -177,6 +179,7 @@ void motorController(int32_t pwmValue, int32_t directionL, int32_t directionR, b
 
 void motorPidController()
 {
+ 
   uint32_t leftSensorAdj = sensorValues[0];
   uint32_t leftMSensorAdj = sensorValues[1];
   uint32_t rightMSensorAdj = sensorValues[2];
@@ -191,28 +194,34 @@ void motorPidController()
 
   if (sensorValues[0] >= 900 || sensorValues[3] >= 900)
   {
-    //Serial.println("turning");
-    kp = 0.3;
+    if (sensorValues[0] >= 900 && !leftTurnFlag) {
+      leftTurnFlag = true;
+    }
+    if (sensorValues[3] >= 900 && !rightTurnFlag) {
+      rightTurnFlag = true;
+    }
+    kp = 1;
     ki = 0;
-    kd = 0;
+    kd = 0.2;
+    //Serial.println("turning");  
     //Serial.println(sensorValues[3]);
     turnError = leftSensorAdj - rightSensorAdj;
     float pTerm = kp * turnError;
-    iTerm += ki * (turnError + lastTurnError) / 2;
+    iTerm += ki * (turnError + lastTurnError) / 2 * controlInterval;
     iTerm = constrain(iTerm, -255, 255);
     float dTerm = kd * (turnError - lastTurnError);
     int32_t controllerOutput = pTerm + iTerm + dTerm;
     controllerOutput = constrain(controllerOutput, -255, 255);
     lastTurnError = turnError;
     //Serial.println(controllerOutput);
-    if (leftMSensorAdj >= 900) {
+    if (leftSensorAdj >= 900 && leftTurnFlag) {
       motorController(controllerOutput, 0, 1, true);
       //Serial.println("moving left");
-      Serial.println(turnError);
-    } else if (rightSensorAdj >= 900) {
+      //Serial.println(turnError);
+    } else if (rightSensorAdj >= 900 && rightTurnFlag) {
       motorController(controllerOutput, 1, 0, true);
-      Serial.println("moving right");
-      Serial.println(turnError);
+      //Serial.println("moving right");
+      //Serial.println(turnError);
       
     } else {
 
@@ -220,10 +229,12 @@ void motorPidController()
   }
   else
   {
-    //Serial.println("moving straight");
-    kp = 0.4;
-    ki = 0;
+    leftTurnFlag = false;
+    rightTurnFlag = false;
+    kp = 0.2;
+    ki = 0.00;
     kd = 0.5;
+    //Serial.println("moving straight");
     error = sensorValues[1] - sensorValues[2];
     float pTerm = kp * error;
     iTerm += ki * (error + lastError) / 2;
