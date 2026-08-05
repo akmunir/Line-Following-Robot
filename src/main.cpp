@@ -12,8 +12,8 @@ constexpr uint8_t leftMSensor = 10;
 constexpr uint8_t rightMSensor = 11;
 constexpr uint8_t rightSensor = 12;
 constexpr uint8_t sensorCount = 4;
-int defaultSpeed = 200;
-int turnDefaultSpeed = 50;
+int defaultSpeed = 180;
+int turnDefaultSpeed = 0;
 int32_t targetSensorReading = 1000;
 int32_t sensorList[sensorCount] = {leftSensor, leftMSensor, rightMSensor, rightSensor};
 uint16_t sensorValues[sensorCount] = {leftSensor, leftMSensor, rightMSensor, rightSensor};
@@ -149,7 +149,7 @@ void loop()
      Serial.print(sensorValues[i]);
      Serial.print("\t");
   }
-  if (sensorValues[0] >= 900 || sensorValues[1] >= 900 || sensorValues[2] >= 900 || sensorValues[3] >= 900)
+  if (sensorValues[0] >= 850 || sensorValues[1] >= 850 || sensorValues[2] >= 850 || sensorValues[3] >= 850)
   {
     motorPidController();
   }
@@ -192,15 +192,22 @@ void motorPidController()
   int tempError;
   int turnError;
 
-  if (sensorValues[0] >= 900 || sensorValues[3] >= 900)
+  if (sensorValues[0] >= 850 || sensorValues[3] >= 850)
   {
-    if (sensorValues[0] >= 900 && !leftTurnFlag) {
+    if (sensorValues[0] >= 850 && !leftTurnFlag) {
       leftTurnFlag = true;
     }
-    if (sensorValues[3] >= 900 && !rightTurnFlag) {
+    if (sensorValues[3] >= 850 && !rightTurnFlag) {
       rightTurnFlag = true;
     }
-    kp = 1;
+
+    if (!sensorValues[0] >= 850 && leftTurnFlag) {
+      leftTurnFlag = false;
+    }
+    if (!sensorValues[3] >= 850 && rightTurnFlag) {
+      rightTurnFlag = false;
+    }
+    kp = 0.8;
     ki = 0;
     kd = 0.2;
     //Serial.println("turning");  
@@ -214,17 +221,16 @@ void motorPidController()
     controllerOutput = constrain(controllerOutput, -255, 255);
     lastTurnError = turnError;
     //Serial.println(controllerOutput);
-    if (leftSensorAdj >= 900 && leftTurnFlag) {
+    if (leftSensorAdj >= 850 && leftTurnFlag) {
       motorController(controllerOutput, 0, 1, true);
       //Serial.println("moving left");
       //Serial.println(turnError);
-    } else if (rightSensorAdj >= 900 && rightTurnFlag) {
+    } 
+    if (rightSensorAdj >= 850 && rightTurnFlag) {
       motorController(controllerOutput, 1, 0, true);
       //Serial.println("moving right");
       //Serial.println(turnError);
       
-    } else {
-
     }
   }
   else
