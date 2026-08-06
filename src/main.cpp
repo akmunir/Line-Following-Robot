@@ -12,7 +12,7 @@ constexpr uint8_t leftMSensor = 10;
 constexpr uint8_t rightMSensor = 11;
 constexpr uint8_t rightSensor = 12;
 constexpr uint8_t sensorCount = 4;
-int defaultSpeed = 180;
+int defaultSpeed = 200;
 int turnDefaultSpeed = 0;
 int32_t targetSensorReading = 1000;
 int32_t sensorList[sensorCount] = {leftSensor, leftMSensor, rightMSensor, rightSensor};
@@ -26,7 +26,7 @@ float iTerm = 0;
 int leftSensorOffset = 53;
 int middleLeftSensorOffset = 13;
 int middleRightSensorOffset = -61;
-int rightSensorOffset = 6;
+int rightSensorOffset = -100;
 bool leftTurnFlag = false;
 bool rightTurnFlag = false;
 bool readLineSensor(int32_t sensorPin);
@@ -111,7 +111,7 @@ void setup()
 //   Serial.print(' ');
 // }
 // Serial.println();
-// delay(1000);
+delay(1000);
 Serial.println("print EPROM");
 //delay(3000);
   qtr.calibrate();
@@ -135,7 +135,7 @@ Serial.println("print EPROM");
     Serial.print(' ');
   }
   Serial.println();
-  //delay(3000);
+  //delay(10000);
 }
 
 void loop()
@@ -146,10 +146,10 @@ void loop()
   qtr.readCalibrated(sensorValues);
   for (int i = 0; i < sizeof(sensorValues); i++)
   {
-     Serial.print(sensorValues[i]);
-     Serial.print("\t");
+     //Serial.print(sensorValues[i]);
+     //Serial.print("\t");
   }
-  if (sensorValues[0] >= 850 || sensorValues[1] >= 850 || sensorValues[2] >= 850 || sensorValues[3] >= 850)
+  if (sensorValues[0] >= 750 || sensorValues[1] >= 900 || sensorValues[2] >= 900 || sensorValues[3] >= 750)
   {
     motorPidController();
   }
@@ -183,7 +183,7 @@ void motorPidController()
   uint32_t leftSensorAdj = sensorValues[0];
   uint32_t leftMSensorAdj = sensorValues[1];
   uint32_t rightMSensorAdj = sensorValues[2];
-  uint32_t rightSensorAdj = sensorValues[3];
+  uint32_t rightSensorAdj = sensorValues[3];;
   
   float kp;
   float ki;
@@ -192,24 +192,22 @@ void motorPidController()
   int tempError;
   int turnError;
 
-  if (sensorValues[0] >= 850 || sensorValues[3] >= 850)
+  if (sensorValues[0] >= 750 || sensorValues[3] >= 750)
   {
-    if (sensorValues[0] >= 850 && !leftTurnFlag) {
+    if (sensorValues[0] >= 750 && !leftTurnFlag) {
       leftTurnFlag = true;
-    }
-    if (sensorValues[3] >= 850 && !rightTurnFlag) {
+    } else if (sensorValues[3] >= 750 && !rightTurnFlag) {
       rightTurnFlag = true;
     }
 
-    if (!sensorValues[0] >= 850 && leftTurnFlag) {
+    if (!(sensorValues[0] >= 750) && leftTurnFlag) {
       leftTurnFlag = false;
-    }
-    if (!sensorValues[3] >= 850 && rightTurnFlag) {
+    }else if (!(sensorValues[3] >= 750) && rightTurnFlag) {
       rightTurnFlag = false;
     }
     kp = 0.8;
     ki = 0;
-    kd = 0.2;
+    kd = 0.1;
     //Serial.println("turning");  
     //Serial.println(sensorValues[3]);
     turnError = leftSensorAdj - rightSensorAdj;
@@ -221,22 +219,22 @@ void motorPidController()
     controllerOutput = constrain(controllerOutput, -255, 255);
     lastTurnError = turnError;
     //Serial.println(controllerOutput);
-    if (leftSensorAdj >= 850 && leftTurnFlag) {
+    if (leftSensorAdj >= 750 && leftTurnFlag) {
       motorController(controllerOutput, 0, 1, true);
-      //Serial.println("moving left");
-      //Serial.println(turnError);
-    } 
-    if (rightSensorAdj >= 850 && rightTurnFlag) {
+      Serial.println("moving left");
+      Serial.println(turnError);
+    } else if (rightSensorAdj >= 750 && rightTurnFlag) {
       motorController(controllerOutput, 1, 0, true);
-      //Serial.println("moving right");
-      //Serial.println(turnError);
+      Serial.println("moving right");
+      Serial.println(turnError);
       
     }
   }
   else
   {
-    leftTurnFlag = false;
-    rightTurnFlag = false;
+    Serial.println("straight");
+    leftTurnFlag = 0;
+    rightTurnFlag = 0;
     kp = 0.2;
     ki = 0.00;
     kd = 0.5;
@@ -245,7 +243,7 @@ void motorPidController()
     float pTerm = kp * error;
     iTerm += ki * (error + lastError) / 2;
     iTerm = constrain(iTerm, -255, 255);
-    float dTerm = kd * (error - lastError) / controlInterval;
+    float dTerm = kd * (error - lastError) / 2;
     int32_t controllerOutput = pTerm + iTerm + dTerm;
     controllerOutput = constrain(controllerOutput, -255, 255);
     lastError = error;
